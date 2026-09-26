@@ -1,0 +1,71 @@
+name: Hugo CI
+
+# Reusable: builds a Hugo site and, optionally, uploads the output so a later
+# job in the same run (such as a11y.yaml) can use it. See README.md.
+on:
+  workflow_call:
+    inputs:
+      hugo-version:
+        description: Hugo extended version to build with.
+        type: string
+        default: "0.166.0"
+      git-info:
+        description: Check out full history (blobs on demand) for sites using enableGitInfo.
+        type: boolean
+        default: false
+      base-url:
+        description: Override Hugo's baseURL, e.g. http://localhost:4173/ for a11y.yaml. Empty keeps the site config's value.
+        type: string
+        default: ""
+      upload-artifact:
+        description: Name for an artifact of public/, for later jobs in the same run. Empty skips the upload.
+        type: string
+        default: ""
+
+permissions: {}
+
+jobs:
+  build-site:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # Clone the repository
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: ${{ inputs.git-info && '0' || '1' }}
+          filter: ${{ inputs.git-info && 'blob:none' || '' }}
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@2752ce1d29631191ea3f27c23495fa06139a5b78 # v3.2.1
+        with:
+          hugo-version: ${{ inputs.hugo-version }}
+          extended: true
+
+      - name: Cache Hugo image processing
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: resources/_gen
+          # Unique key per run so newly generated resources are always
+          # saved; restore-keys picks up the most recent prior cache.
+          key: hugo-resources-${{ github.run_id }}
+          restore-keys: |
+            hugo-resources-
+
+      - name: Build
+        run: hugo --gc --minify ${BASE_URL:+--baseURL "$BASE_URL"}
+        env:
+          HUGO_ENV: production
+          BASE_URL: ${{ inputs.base-url }}
+
+      - name: Upload built site
+        if: inputs.upload-artifact != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ inputs.upload-artifact }}
+          path: public/
+          retention-days: 1
