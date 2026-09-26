@@ -13,6 +13,10 @@ on:
         description: Check out full history (blobs on demand) for sites using enableGitInfo.
         type: boolean
         default: false
+      ref:
+        description: Commit, branch, or tag to build. Empty builds the commit that triggered the run.
+        type: string
+        default: ""
       base-url:
         description: Override Hugo's baseURL, e.g. http://localhost:4173/ for a11y.yaml. Empty keeps the site config's value.
         type: string
@@ -36,6 +40,7 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.ref }}
           persist-credentials: false
           fetch-depth: ${{ inputs.git-info && '0' || '1' }}
           filter: ${{ inputs.git-info && 'blob:none' || '' }}

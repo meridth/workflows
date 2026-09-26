@@ -1,0 +1,71 @@
+name: Resolve deploy run
+
+# Reusable: finds the deploy run to promote and outputs its commit SHA, after
+# checking it is a successful run of the deploy workflow on the given branch.
+# See docs/resolve-deploy-run.md.
+on:
+  workflow_call:
+    inputs:
+      run-id:
+        description: Deploy run ID to promote. Empty picks the latest successful run.
+        type: string
+        default: ""
+      workflow-file:
+        description: File name of the deploy workflow.
+        type: string
+        default: deploy.yaml
+      workflow-name:
+        description: The deploy workflow's `name:`, checked against the run.
+        type: string
+        default: deploy
+      branch:
+        description: Branch the deploy run must have run on.
+        type: string
+        default: main
+    outputs:
+      sha:
+        description: Commit SHA of the resolved deploy run.
+        value: ${{ jobs.resolve.outputs.sha }}
+      run-id:
+        description: ID of the resolved deploy run.
+        value: ${{ jobs.resolve.outputs.run-id }}
+
+permissions: {}
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read # Look up deploy runs
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      run-id: ${{ steps.resolve.outputs.run-id }}
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Resolve deploy run
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run-id }}
+          WORKFLOW_FILE: ${{ inputs.workflow-file }}
+          WORKFLOW_NAME: ${{ inputs.workflow-name }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          if [ -z "$RUN_ID" ]; then
+            RUN_ID=$(gh run list -R "$GITHUB_REPOSITORY" --workflow="$WORKFLOW_FILE" --branch="$BRANCH" --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
+          fi
+          if [ -z "$RUN_ID" ]; then
+            echo "No successful $WORKFLOW_FILE run on $BRANCH to promote" >&2
+            exit 1
+          fi
+          read -r SHA RUN_BRANCH CONCLUSION WORKFLOW < <(gh run view "$RUN_ID" -R "$GITHUB_REPOSITORY" --json headSha,headBranch,conclusion,workflowName --jq '"\(.headSha) \(.headBranch) \(.conclusion) \(.workflowName)"')
+          if [ "$WORKFLOW" != "$WORKFLOW_NAME" ] || [ "$RUN_BRANCH" != "$BRANCH" ] || [ "$CONCLUSION" != "success" ]; then
+            echo "Run $RUN_ID is not a successful $WORKFLOW_NAME run on $BRANCH (workflow=$WORKFLOW branch=$RUN_BRANCH conclusion=$CONCLUSION)" >&2
+            exit 1
+          fi
+          echo "Promoting run $RUN_ID at $SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"

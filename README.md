@@ -7,6 +7,8 @@ Reusable GitHub Actions workflows shared across Meridth, LLC repositories.
 - [Mark Ready](docs/mark-ready.md): marks a labeled draft PR ready once its checks pass
 - [Hugo CI](docs/hugo-ci.md): builds a Hugo site, optionally uploading it for later jobs
 - [Accessibility (a11y)](docs/a11y.md): scans a built static site with pa11y-ci
+- [Cloudflare Pages Deploy](docs/cloudflare-pages-deploy.md): deploys a built static site to Cloudflare Pages in a GitHub environment
+- [Resolve Deploy Run](docs/resolve-deploy-run.md): finds the deploy run to promote and outputs its commit
 
 > [!CAUTION]
 > A reusable workflow can't exceed its caller's permissions. Each doc lists the permissions its caller job must grant.
