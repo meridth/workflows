@@ -39,9 +39,33 @@ The caller must grant the permissions above: a reusable workflow can't exceed it
 
 ## hugo-ci
 
-Builds a Hugo site on every PR and, optionally, scans it with [pa11y-ci](https://github.com/pa11y/pa11y-ci). Two jobs report as checks: `build-site` and `a11y`. Called from a job named `ci`, they appear as `ci / build-site` and `ci / a11y`.
+Builds a Hugo site. Its job reports as the `build-site` check; called from a job named `build`, it appears as `build / build-site`. Set `upload-artifact` to hand the built `public/` to a later job in the same run, such as [a11y](#a11y).
 
-`.github/workflows/ci.yaml` in the calling repo:
+| Input | Default | Purpose |
+|---|---|---|
+| `hugo-version` | `0.166.0` | Hugo extended version |
+| `git-info` | `false` | Full history (blobs on demand) for sites using `enableGitInfo` |
+| `base-url` | site config | Override Hugo's `baseURL`, e.g. `http://localhost:4173/` for a11y |
+| `upload-artifact` | none | Artifact name for `public/`; empty skips the upload |
+
+## a11y
+
+Serves a built static site from an artifact and scans it with [pa11y-ci](https://github.com/pa11y/pa11y-ci). Its job reports as the `pa11y` check; called from a job named `a11y`, it appears as `a11y / pa11y`. It isn't Hugo-specific: any earlier job in the same run can upload the site.
+
+| Input | Default | Purpose |
+|---|---|---|
+| `artifact` | required | Artifact holding the built site |
+| `pa11y-config` | `.pa11yci.js` | pa11y-ci config path |
+| `node-version` | `24` | Node.js version for pa11y-ci |
+
+The calling repo needs:
+
+- `package.json` and `package-lock.json` with `pa11y-ci` and `serve` as dev dependencies. The workflow runs them with `npx --no-install`, so their versions come from your lockfile.
+- A pa11y-ci config that scans `http://localhost:4173/`, where the site is served. Build the site with that address as its base URL. Set `chromeLaunchConfig.executablePath` from the `CHROME_PATH` environment variable; the workflow points it at the runner's Chrome and skips Puppeteer's download.
+
+## Hugo site CI example
+
+`.github/workflows/ci.yaml` in the calling repo, building once and scanning that build:
 
 ```yaml
 name: ci
@@ -57,23 +81,21 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  ci:
+  build:
     permissions:
       contents: read # Clone the repository
     uses: meridth/workflows/.github/workflows/hugo-ci.yaml@<sha> # v1.1.0
+    with:
+      base-url: http://localhost:4173/
+      upload-artifact: site
+
+  a11y:
+    needs: build
+    permissions:
+      contents: read # Clone the repository for package.json and the pa11y config
+    uses: meridth/workflows/.github/workflows/a11y.yaml@<sha> # v1.1.0
+    with:
+      artifact: site
 ```
 
-Inputs, all optional:
-
-| Input | Default | Purpose |
-|---|---|---|
-| `hugo-version` | `0.166.0` | Hugo extended version |
-| `git-info` | `false` | Full history (blobs on demand) for sites using `enableGitInfo` |
-| `a11y` | `true` | Run pa11y-ci against the built site |
-| `pa11y-config` | `.pa11yci.js` | pa11y-ci config path |
-| `node-version` | `24` | Node.js version for pa11y-ci |
-
-With `a11y: true`, the calling repo needs:
-
-- `package.json` and `package-lock.json` with `pa11y-ci` and `serve` as dev dependencies. The workflow runs them with `npx --no-install`, so their versions come from your lockfile.
-- A pa11y-ci config that scans `http://localhost:4173/`. The site is built with that `baseURL` and served there. Set `chromeLaunchConfig.executablePath` from the `CHROME_PATH` environment variable; the workflow points it at the runner's Chrome and skips Puppeteer's download.
+Required checks: `build / build-site` and `a11y / pa11y`.
