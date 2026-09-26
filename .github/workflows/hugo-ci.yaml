@@ -1,0 +1,124 @@
+name: Hugo CI
+
+# Reusable: builds a Hugo site and, optionally, scans it with pa11y-ci.
+# Call it from a workflow on `pull_request`; see README.md.
+on:
+  workflow_call:
+    inputs:
+      hugo-version:
+        description: Hugo extended version to build with.
+        type: string
+        default: "0.166.0"
+      git-info:
+        description: Check out full history (blobs on demand) for sites using enableGitInfo.
+        type: boolean
+        default: false
+      a11y:
+        description: Run pa11y-ci against the built site.
+        type: boolean
+        default: true
+      pa11y-config:
+        description: Path to the pa11y-ci config, relative to the repo root.
+        type: string
+        default: .pa11yci.js
+      node-version:
+        description: Node.js version for pa11y-ci.
+        type: string
+        default: "24"
+
+permissions: {}
+
+env:
+  # The site is built for, and served at, this address so pa11y can scan it.
+  SITE_URL: http://localhost:4173/
+
+jobs:
+  build-site:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # Clone the repository
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: ${{ inputs.git-info && '0' || '1' }}
+          filter: ${{ inputs.git-info && 'blob:none' || '' }}
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@2752ce1d29631191ea3f27c23495fa06139a5b78 # v3.2.1
+        with:
+          hugo-version: ${{ inputs.hugo-version }}
+          extended: true
+
+      - name: Cache Hugo image processing
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: resources/_gen
+          # Unique key per run so newly generated resources are always
+          # saved; restore-keys picks up the most recent prior cache.
+          key: hugo-resources-${{ github.run_id }}
+          restore-keys: |
+            hugo-resources-
+
+      # Built for the local scan address. It still proves the site builds.
+      - name: Build
+        run: hugo --gc --minify --baseURL "$SITE_URL"
+        env:
+          HUGO_ENV: production
+
+      - name: Upload built site
+        if: inputs.a11y
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hugo-ci-public
+          path: public/
+          retention-days: 1
+
+  a11y:
+    if: inputs.a11y
+    needs: build-site
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # Clone the repository for package.json and the pa11y config
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download built site
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: hugo-ci-public
+          path: public
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      # pa11y uses the runner's preinstalled Chrome, so skip Puppeteer's download.
+      - name: Install pa11y-ci and serve
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+
+      - name: Serve site
+        run: |
+          npx --no-install serve public -l 4173 --no-clipboard > /dev/null 2>&1 &
+          for _ in $(seq 30); do curl -sf -o /dev/null "$SITE_URL" && exit 0; sleep 1; done
+          echo "Static server did not start" >&2
+          exit 1
+
+      - name: Run pa11y-ci
+        run: npx --no-install pa11y-ci --config "$PA11Y_CONFIG"
+        env:
+          PA11Y_CONFIG: ${{ inputs.pa11y-config }}
+          CHROME_PATH: /usr/bin/google-chrome
