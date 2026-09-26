@@ -57,11 +57,12 @@ Serves a built static site from an artifact and scans it with [pa11y-ci](https:/
 | `artifact` | required | Artifact holding the built site |
 | `pa11y-config` | `.pa11yci.js` | pa11y-ci config path |
 | `node-version` | `24` | Node.js version for pa11y-ci |
+| `port` | `4173` | Local port to serve the site on |
 
 The calling repo needs:
 
 - `package.json` and `package-lock.json` with `pa11y-ci` and `serve` as dev dependencies. The workflow runs them with `npx --no-install`, so their versions come from your lockfile.
-- A pa11y-ci config that scans `http://localhost:4173/`, where the site is served. Build the site with that address as its base URL. Set `chromeLaunchConfig.executablePath` from the `CHROME_PATH` environment variable; the workflow points it at the runner's Chrome and skips Puppeteer's download.
+- A pa11y-ci config that scans the served site. The workflow sets `SITE_URL` (`http://localhost:4173/` by default) for the pa11y-ci step, so read it with `process.env.SITE_URL` in a `.pa11yci.js`. Build the site with the same address as its base URL. Set `chromeLaunchConfig.executablePath` from the `CHROME_PATH` environment variable; the workflow points it at the runner's Chrome and skips Puppeteer's download.
 
 ## Hugo site CI example
 

@@ -17,12 +17,18 @@ on:
         description: Node.js version for pa11y-ci.
         type: string
         default: "24"
+      port:
+        description: Local port to serve the site on. pa11y-ci gets the full address as SITE_URL.
+        type: number
+        default: 4173
 
 permissions: {}
 
 env:
-  # The site is served here; the pa11y config must scan this address.
-  SITE_URL: http://localhost:4173/
+  # The site is served here. pa11y configs can read SITE_URL instead of
+  # hardcoding the address.
+  PORT: ${{ inputs.port }}
+  SITE_URL: http://localhost:${{ inputs.port }}/
 
 jobs:
   pa11y:
@@ -57,7 +63,7 @@ jobs:
 
       - name: Serve site
         run: |
-          npx --no-install serve public -l 4173 --no-clipboard > /dev/null 2>&1 &
+          npx --no-install serve public -l "$PORT" --no-clipboard > /dev/null 2>&1 &
           for _ in $(seq 30); do curl -sf -o /dev/null "$SITE_URL" && exit 0; sleep 1; done
           echo "Static server did not start" >&2
           exit 1
