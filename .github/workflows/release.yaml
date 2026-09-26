@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  # pull_request_target so PRs merged from forks can release too. Safe here:
+  # release-minimal checks out the base branch, never the PR's code.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types: [closed]
+    branches: [main]
+
+permissions: {}
+
+# One release at a time; never cancel one in flight.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    permissions:
+      contents: write # Create releases and push tags
+      pull-requests: read # Read PR labels for release-drafter
+    uses: github-community-projects/ospo-reusable-workflows/.github/workflows/release-minimal.yaml@a48c75fafbf2513929ff2ce06dfaa38247ddc50b # v2.1.0
+    with:
+      release-config-name: release-drafter.yml
+      publish: true
+      # Release only when a PR carries the `release` label. The version comes
+      # from `major`/`minor`/`patch` or the auto-labeled `feature`/`fix`.
+      release-only-with-label: true
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
