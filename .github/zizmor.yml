@@ -1,0 +1,5 @@
+rules:
+  dependabot-cooldown:
+    config:
+      # Match Dependabot's default cooldown
+      days: 3
