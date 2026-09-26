@@ -1,0 +1,80 @@
+name: Cloudflare Pages deploy
+
+# Reusable: deploys a built static site from an artifact to Cloudflare Pages,
+# inside a GitHub environment. Build the site in an earlier job of the same
+# run; see docs/cloudflare-pages-deploy.md.
+#
+# The job reads CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from the
+# environment's secrets, so callers don't pass any.
+on:
+  workflow_call:
+    inputs:
+      artifact:
+        description: Name of the artifact holding the built site, uploaded earlier in the same run.
+        type: string
+        required: true
+      directory:
+        description: Directory inside the artifact to deploy.
+        type: string
+        default: "."
+      environment:
+        description: GitHub environment to deploy in, e.g. staging or production. Holds the Cloudflare secrets.
+        type: string
+        required: true
+      environment-url:
+        description: URL shown on the deployment in GitHub.
+        type: string
+        required: true
+      cloudflare-project:
+        description: Cloudflare Pages project name.
+        type: string
+        required: true
+      cloudflare-branch:
+        description: Cloudflare Pages branch. The project's production branch deploys to production; any other is a preview.
+        type: string
+        required: true
+      functions:
+        description: Also deploy Pages Functions from the repo's functions/ directory, at the commit in `ref`.
+        type: boolean
+        default: false
+      ref:
+        description: Commit to take functions/ from. Empty uses the commit that triggered the run.
+        type: string
+        default: ""
+
+permissions: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ inputs.environment-url }}
+    permissions:
+      contents: read # Check out functions/ when deploying Pages Functions
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      # wrangler picks up functions/ from the working directory.
+      - name: Check out Pages Functions
+        if: inputs.functions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+          sparse-checkout: functions
+
+      - name: Download built site
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.artifact }}
+          path: site
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site/${{ inputs.directory }} --project-name=${{ inputs.cloudflare-project }} --branch=${{ inputs.cloudflare-branch }}

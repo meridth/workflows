@@ -8,6 +8,7 @@ Builds a Hugo site. Its job reports as the `build-site` check; called from a job
 |---|---|---|
 | `hugo-version` | `0.166.0` | Hugo extended version |
 | `git-info` | `false` | Full history (blobs on demand) for sites using `enableGitInfo` |
+| `ref` | triggering commit | Commit, branch, or tag to build; promote passes the resolved deploy commit |
 | `base-url` | site config | Override Hugo's `baseURL`, e.g. `http://localhost:4173/` for a11y |
 | `upload-artifact` | none | Artifact name for `public/`; empty skips the upload |
 
