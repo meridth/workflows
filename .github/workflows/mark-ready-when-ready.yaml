@@ -1,0 +1,22 @@
+name: Mark PR Ready When Ready
+
+on:
+  pull_request:
+    types: [opened, edited, labeled, unlabeled, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Calls this repo's own copy, so every PR also exercises the workflow it changes.
+  mark-ready:
+    permissions:
+      checks: read # Poll check runs to know when they pass
+      contents: write # Required by mark-ready-when-ready to flip the PR out of draft
+      pull-requests: write # Mark the PR ready for review
+      statuses: read # Poll commit statuses alongside check runs
+    # actionlint 1.7.12 rejects zizmor's suggested `$/` syntax, so keep `./`.
+    uses: ./.github/workflows/mark-ready.yaml # zizmor: ignore[self-repository]

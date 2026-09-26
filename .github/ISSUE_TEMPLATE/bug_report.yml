@@ -1,0 +1,47 @@
+name: Bug report
+description: A reusable workflow failed or behaved unexpectedly in a calling repository.
+labels: [bug]
+body:
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Which workflow?
+      options:
+        - mark-ready.yaml
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Pinned version
+      description: The ref the caller uses, with its version comment.
+      placeholder: 3d57625b6111113a6867a4746c60a62918226c3d # v1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: run
+    attributes:
+      label: Failing run
+      description: Link to the workflow run in the calling repository.
+      placeholder: https://github.com/meridth/<repo>/actions/runs/<id>
+    validations:
+      required: true
+
+  - type: textarea
+    id: caller
+    attributes:
+      label: Caller workflow
+      description: The job in the calling repository that uses this workflow.
+      render: yaml
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
