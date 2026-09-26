@@ -15,7 +15,7 @@ permissions: {}
 jobs:
   mark-ready:
     name: Mark as ready after successful checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       checks: read # Poll check runs to know when they pass
       contents: write # Required by mark-ready-when-ready to flip the PR out of draft
