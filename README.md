@@ -33,7 +33,7 @@ jobs:
     uses: meridth/workflows/.github/workflows/mark-ready.yaml@<sha> # v1.0.0
 ```
 
-The calling repo needs a `Mark Ready When Ready` label, or pass another name with `with: { label: ... }`.
+The calling repo needs a `mark-ready-when-ready` label, or pass another name with `with: { label: ... }`.
 
 The caller must grant the permissions above: a reusable workflow can't exceed its caller's permissions.
 
