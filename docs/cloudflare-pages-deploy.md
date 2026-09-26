@@ -15,7 +15,9 @@ Deploys a built static site from an artifact to Cloudflare Pages, inside a GitHu
 | `functions` | `false` | Also deploy Pages Functions from `functions/` |
 | `ref` | triggering commit | Commit to take `functions/` from |
 
-Each environment needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets. The deploy job declares the environment, so it reads them directly; callers pass no secrets.
+Each environment needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets. The deploy job declares the environment and reads them there. A reusable workflow only sees secrets its caller passes, and the caller job has no environment to read them from, so callers use `secrets: inherit`. zizmor flags that (`secrets-inherit`); ignore it inline with the reason.
+
+Restrict each environment's deployment branches to `main`. Otherwise anyone who can push a branch can run a modified workflow in the environment and read its secrets.
 
 ## Example: deploy a Hugo site to staging on merge
 
@@ -48,6 +50,7 @@ jobs:
     permissions:
       contents: read # Check out functions/ when deploying Pages Functions
     uses: meridth/workflows/.github/workflows/cloudflare-pages-deploy.yaml@<sha> # v1.3.0
+    secrets: inherit # zizmor: ignore[secrets-inherit] environment secrets reach the deploy job only this way
     with:
       artifact: site
       environment: staging

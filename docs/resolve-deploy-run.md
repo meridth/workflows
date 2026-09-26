@@ -56,6 +56,7 @@ jobs:
     permissions:
       contents: read # Check out functions/ when deploying Pages Functions
     uses: meridth/workflows/.github/workflows/cloudflare-pages-deploy.yaml@<sha> # v1.3.0
+    secrets: inherit # zizmor: ignore[secrets-inherit] environment secrets reach the deploy job only this way
     with:
       artifact: site
       environment: production

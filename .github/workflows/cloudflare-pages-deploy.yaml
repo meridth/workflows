@@ -5,7 +5,9 @@ name: Cloudflare Pages deploy
 # run; see docs/cloudflare-pages-deploy.md.
 #
 # The job reads CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from the
-# environment's secrets, so callers don't pass any.
+# environment's secrets. A reusable workflow only sees secrets its caller
+# passes, and a caller job without the environment can't read them, so callers
+# use `secrets: inherit`.
 on:
   workflow_call:
     inputs:
