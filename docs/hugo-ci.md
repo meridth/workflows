@@ -11,6 +11,14 @@ Builds a Hugo site. Its job reports as the `build-site` check; called from a job
 | `ref` | triggering commit | Commit, branch, or tag to build; promote passes the resolved deploy commit |
 | `base-url` | site config | Override Hugo's `baseURL`, e.g. `http://localhost:4173/` for a11y |
 | `upload-artifact` | none | Artifact name for `public/`; empty skips the upload |
+| `prepare-command` | none | Shell command run before Hugo, e.g. to write `data/` files; empty skips it |
+| `node-version` | `24` | Node.js version available to `prepare-command` |
+
+| Secret | Purpose |
+|---|---|
+| `prepare-secret` | Optional. Available to `prepare-command` as `$PREPARE_SECRET`, and to no other step |
+
+`prepare-command` runs right after checkout, with Node installed and nothing else: there is no `npm ci`, so no third-party package code runs in the step that can see `prepare-secret`. A script that needs only Node's built-in modules fits this best.
 
 ## Example: build and scan a Hugo site
 
@@ -48,5 +56,22 @@ jobs:
 ```
 
 Required checks: `build / build-site` and `a11y / pa11y`.
+
+## Example: generate data before building
+
+Pass a secret only to the prepare step, under the name your script expects:
+
+```yaml
+jobs:
+  build:
+    permissions:
+      contents: read # Clone the repository
+    uses: meridth/workflows/.github/workflows/hugo-ci.yaml@<sha> # v1.4.0
+    with:
+      upload-artifact: site
+      prepare-command: FEED_URL="$PREPARE_SECRET" node scripts/fetch-data.mjs
+    secrets:
+      prepare-secret: ${{ secrets.FEED_URL }}
+```
 
 Pin to a release commit SHA with the version in a comment, as shown. See [Releases](https://github.com/meridth/workflows/releases).

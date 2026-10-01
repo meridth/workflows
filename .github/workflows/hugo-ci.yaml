@@ -25,6 +25,18 @@ on:
         description: Name for an artifact of public/, for later jobs in the same run. Empty skips the upload.
         type: string
         default: ""
+      prepare-command:
+        description: Shell command to run before Hugo builds, e.g. to generate files in data/. Runs with Node available and no npm install. Empty skips it.
+        type: string
+        default: ""
+      node-version:
+        description: Node.js version for prepare-command.
+        type: string
+        default: "24"
+    secrets:
+      prepare-secret:
+        description: Exposed to prepare-command as the PREPARE_SECRET environment variable, and to no other step.
+        required: false
 
 permissions: {}
 
@@ -44,6 +56,21 @@ jobs:
           persist-credentials: false
           fetch-depth: ${{ inputs.git-info && '0' || '1' }}
           filter: ${{ inputs.git-info && 'blob:none' || '' }}
+
+      - name: Setup Node
+        if: inputs.prepare-command != ''
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      # Runs before any dependency install, so no third-party package code
+      # shares the job with PREPARE_SECRET.
+      - name: Prepare
+        if: inputs.prepare-command != ''
+        run: bash -euo pipefail -c "$PREPARE_COMMAND"
+        env:
+          PREPARE_COMMAND: ${{ inputs.prepare-command }}
+          PREPARE_SECRET: ${{ secrets.prepare-secret }}
 
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@2752ce1d29631191ea3f27c23495fa06139a5b78 # v3.2.1
